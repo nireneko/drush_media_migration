@@ -1,0 +1,5 @@
+name: Drush media migration
+type: module
+description: Provides a command to execute a migration to media.
+package: Media
+core_version_requirement: ^9 || ^10

@@ -1,0 +1,4 @@
+services:
+  drush_media_migration.migrate:
+    class: Drupal\drush_media_migration\MediaMigration
+    autowire: true

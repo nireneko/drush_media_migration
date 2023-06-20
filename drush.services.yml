@@ -1,0 +1,6 @@
+services:
+  drush_media_migration.commands:
+    class: \Drupal\drush_media_migration\Drush\Commands\DrushMediaMigrationCommands
+    arguments: ['@entity_type.manager', '@drush_media_migration.migrate']
+    tags:
+      - { name: drush.command }
