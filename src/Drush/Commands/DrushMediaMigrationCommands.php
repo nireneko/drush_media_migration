@@ -6,6 +6,7 @@ use Drupal\Core\Batch\BatchBuilder;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\drush_media_migration\MediaMigrationInterface;
 use Drush\Commands\DrushCommands;
+use Drush\Exceptions\UserAbortException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -48,7 +49,7 @@ class DrushMediaMigrationCommands extends DrushCommands {
    *   The destination field of the media entity.
    * @option media-bundle
    *   The bundle of the target media entity.
-   * @usage drush_media_migration:migrate --entity-type=node --bundle=article --source=field_image --destination=field_media_image --media-bundle=image
+   * @usage dmm:migrate --entity-type=node --bundle=article --source=field_image --destination=field_media_image --media-bundle=image
    *   Execute the command with all the options.
    *
    * @command drush_media_migration:migrate
@@ -75,6 +76,20 @@ class DrushMediaMigrationCommands extends DrushCommands {
 
     $entity_ids = $this->mediaMigration->getEntitiesIdsToMigrate($options['entity-type'], $options['bundle'], $options['source']);
 
+    $count = count($entity_ids);
+
+    if ($count == 0) {
+      $this->logger()->info(dt("No entity found to migrate."));
+      $this->output()->writeln('No entity found to migrate, aborting.');
+      return null;
+    }
+
+    $this->output()->writeln($count . ' ' . $options['bundle'] . ' of the entity ' . $options['entity-type'] . ' will be updated.');
+
+    if (!$this->io()->confirm('Do you want to continue?')) {
+      throw new UserAbortException();
+    }
+
     $batch = new BatchBuilder();
 
     $batch->setTitle('Migrating from files/image to Media entity...')
@@ -83,8 +98,6 @@ class DrushMediaMigrationCommands extends DrushCommands {
       ->setErrorMessage('An error occurred during processing');
 
     $results = array_chunk($entity_ids, 10);
-
-    $count = count($entity_ids);
 
     foreach ($results as $rows) {
       $batch->addOperation('\Drupal\drush_media_migration\Batch\MediaMigration::migrate',
@@ -96,8 +109,6 @@ class DrushMediaMigrationCommands extends DrushCommands {
     $batch->setFinishCallback('\Drupal\drush_media_migration\Batch\MediaMigration::migrateFinishedCallback');
 
     batch_set($batch->toArray());
-
-    // @todo: Ask confirmation before executing the batch.
 
     $batch =& batch_get();
 

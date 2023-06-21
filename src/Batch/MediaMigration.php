@@ -31,6 +31,20 @@ class MediaMigration {
       $context['results']['file_error_ids'] = [];
     }
 
+    $media_fields = [
+      'image' => [
+        'field' => 'field_media_image',
+      ],
+      'document' => [
+        'field' => 'field_media_document',
+      ],
+    ];
+
+    /** @var \Drupal\Core\Extension\ModuleHandlerInterface $module_handler */
+    $module_handler = \Drupal::service('module_handler');
+
+    $module_handler->alter('drush_media_migration_bundle', $media_fields);
+
     $entity_storage = \Drupal::entityTypeManager()->getStorage($entity_type);
 
     ++$context['results']['file_rows_processed'];
@@ -46,7 +60,7 @@ class MediaMigration {
             ->load($file_id['target_id']);
           if (!$file) {
             $message = 'Media cannot be created. The %entity_type_id with ID: %entity_id of bundle: %bundle refers to the image file with ID: %fid. But there is no information about the file with this ID in the database.';
-            \Drupal::logger('image_field_to_media')->error($message, [
+            \Drupal::logger('drush_media_migration')->error($message, [
               '%fid' => $file_id['target_id'],
               '%entity_type_id' => $entity_type,
               '%bundle' => $bundle_id,
@@ -61,16 +75,19 @@ class MediaMigration {
             // @TODO: Make this work for languages.
           ];
 
-          // Asign the file to the correct field.
-          switch ($field_map['media_bundle']) {
-            case 'image':
-              $media_data['field_media_image'] = $file_id;
-              break;
-
-            case 'document':
-              $media_data['field_media_document'] = $file_id;
-              break;
+          if (!isset($media_fields[$field_map['media_bundle']])) {
+            $message = 'Cannot migrate to Media because bundle is not defined. Use the hook drush_media_migration_bundle_alter to define the bundle for the media type.';
+            \Drupal::logger('drush_media_migration')->error($message, [
+              '%fid' => $file_id['target_id'],
+              '%entity_type_id' => $entity_type,
+              '%bundle' => $bundle_id,
+              '%entity_id' => $entity->id(),
+            ]);
+            continue;
           }
+
+          $media_data[$media_fields[$field_map['media_bundle']]['field']] = $file_id;
+
           $media = \Drupal::entityTypeManager()->getStorage('media')->create($media_data);
           $media->save();
           $entity->get($field_map['destination'])->appendItem($media->id());
